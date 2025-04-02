@@ -479,10 +479,13 @@
                             };
                         }
 
+                        // 动态判断首尾C值（修复关键问题）
+                        const isFirstOrLastC = (colNumber === 3 || colNumber === (3 + Object.keys(row).filter(k => k.startsWith('C')).length - 1));
+                        const limit = isFirstOrLastC ? 12 : 20;
+
                         // 标记超限值（红色背景）
                         if (colNumber >= 3 && colNumber <= 8) {
                             const value = cell.value;
-                            const limit = (colNumber === 3 || colNumber === 8) ? 12 : 20;
                             if (value !== null && value !== '' && Math.abs(value) > limit) {
                                 cell.fill = {
                                     type: 'pattern',
@@ -521,11 +524,12 @@
 
                 // 保存文件
                 const buffer = await workbook.xlsx.writeBuffer();
-                saveAs(new Blob([buffer]), `护栏匹配结果_${new Date().toLocaleDateString()}.xlsx`);
+                saveAs(new Blob([buffer]), `护栏匹配结果_${new Date().toISOString().split('T')[0]}.xlsx`);
             } catch (error) {
-                console.error('生成Excel错误:', error);
-                throw new Error('生成Excel文件时出错');
+                console.error('下载文件错误:', error);
+                showStatus('下载文件错误', 'error');
             }
         }
-
-</script>
+    </script>
+</body>
+</html>
