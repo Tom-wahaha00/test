@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>护栏数字模拟匹配4.0</title>
+    <style>
+        :root {
+            --system-blue: #007AFF;
+            --system-gray: #8E8E93;
+            --system-gray-light: #F2F2F7;
+            --system-gray-dark: #636366;
+            --system-green: #34C759;
+            --system-red: #FF3B30;
+            --system-background: rgba(255, 255, 255, 0.9);
+            --system-grouped-background: rgba(242, 242, 247, 0.9);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: url('https://s21.ax1x.com/2025/03/25/pEDAKFP.jpg') no-repeat center center fixed;
+            background-size: cover;
+            color: #1C1C1E;
+            margin: 0;
+            padding: 0;
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+            min-height: 100vh;
+            position: relative;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-top: 20px;
+        }
+
+        h1 {
+            font-size: 28px;
+            font-weight: 600;
+            color: #000;
+            margin-bottom: 8px;
+        }
+
+        .card {
+            background-color: var(--system-background);
+            border-radius: 14px;
+            padding: 20px;
+            margin-bottom: 16px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+            border: 1px solid rgba(0,0,0,0.1);
+        }
+
+        .button-group {
+            display: flex;
+            flex-direction: row;
+            gap: 12px;
+            margin-bottom: 20px;
+            justify-content: center;
+        }
+
+        button {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 12px 20px;
+            font-size: 15px;
+            font-weight: 500;
+            color: white;
+            background-color: rgba(0, 122, 255, 0.9);
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            min-width: 180px;
+        }
+
+        button.primary {
+            background-color: rgba(0, 122, 255, 0.9);
+        }
+
+        button.secondary {
+            background-color: rgba(120, 120, 128, 0.2);
+            color: #1C1C1E;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        button.primary:hover {
+            background-color: rgba(0, 122, 255, 1);
+        }
+
+        button.secondary:hover {
+            background-color: rgba(120, 120, 128, 0.3);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .status {
+            padding: 12px 16px;
+            border-radius: 10px;
+            margin-bottom: 16px;
+            display: none;
+            align-items: center;
+            font-size: 15px;
+            background-color: rgba(255,255,255,0.9);
+        }
+
+        .status.info {
+            background-color: rgba(0,122,255,0.1);
+            color: var(--system-blue);
+        }
+
+        .status.success {
+            background-color: rgba(52,199,89,0.1);
+            color: var(--system-green);
+        }
+
+        .status.error {
+            background-color: rgba(255,59,48,0.1);
+            color: var(--system-red);
+        }
+
+        .note {
+            font-size: 13px;
+            color: var(--system-gray);
+            margin-top: 8px;
+        }
+
+        .icon {
+            margin-right: 8px;
+            font-size: 18px;
+        }
+
+        .author {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            font-size: 14px;
+            color: rgba(0,0,0,0.6);
+            background-color: rgba(255,255,255,0.9);
+            padding: 8px 12px;
+            border-radius: 10px;
+        }
+
+        @media (max-width: 768px) {
+            .button-group {
+                flex-direction: column;
+            }
+
+            button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>护栏数字模拟匹配4.0</h1>
+        </header>
+
+        <div class="card">
+            <div class="button-group">
+                <button id="selectFile" class="secondary">
+                    <span class="icon">📁</span>
+                    <span>选择数据文件</span>
+                </button>
+                <button id="calculate" class="primary" disabled>
+                    <span class="icon">🧮</span>
+                    <span>开始计算</span>
+                </button>
+                <button id="about" class="secondary">
+                    <span class="icon">ℹ️</span>
+                    <span>关于系统</span>
+                </button>
+            </div>
+
+            <div id="fileInfo" class="note">尚未选择文件</div>
+            <div id="status" class="status"></div>
+        </div>
+    </div>
+
+    <div class="author">中交二公局-汤剑辉</div>
+
+    <script src="https://cdn.jsdelivr.net/npm/exceljs@4.3.0/dist/exceljs.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js" defer></script>
+    <script defer>
+        let fileData = [];
+        const statusElement = document.getElementById('status');
+
+        document.getElementById('selectFile').addEventListener('click', function() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.xlsx,.xls,.csv';
+
+            input.onchange = e => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                document.getElementById('fileInfo').textContent = `已选择文件: ${file.name}`;
+                document.getElementById('calculate').disabled = true;
+                showStatus('正在解析文件...', 'info');
+
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        if (file.name.endsWith('.csv')) {
+                            Papa.parse(e.target.result, {
+                                header: true,
+                                complete: function(results) {
+                                    processFileData(results.data);
+                                },
+                                error: function(error) {
+                                    showStatus(`CSV解析错误: ${error.message}`, 'error');
+                                }
+                            });
+                        } else {
+                            const data = new Uint8Array(e.target.result);
+                            const workbook = new ExcelJS.Workbook();
+                            workbook.xlsx.load(data).then(function() {
+                                const worksheet = workbook.getWorksheet(1);
+                                const jsonData = [];
+
+                                const headerRow = worksheet.getRow(1);
+                                const headers = [];
+                                headerRow.eachCell({ includeEmpty: true }, function(cell) {
+                                    headers.push(cell.value);
+                                });
+
+                                worksheet.eachRow({ includeEmpty: false }, function(row, rowNumber) {
+                                    if (rowNumber === 1) return;
+
+                                    const rowData = {};
+                                    row.eachCell({ includeEmpty: true }, function(cell, colNumber) {
+                                        rowData[headers[colNumber-1]] = cell.value;
+                                    });
+                                    jsonData.push(rowData);
+                                });
+
+                                processFileData(jsonData);
+                            }).catch(error => {
+                                showStatus(`Excel解析错误: ${error.message}`, 'error');
+                            });
+                        }
+                    } catch (error) {
+                        showStatus(`文件解析错误: ${error.message}`, 'error');
+                        console.error('解析错误:', error);
+                    }
+                };
+
+                reader.readAsArrayBuffer(file);
+            };
+
+            input.click();
+        });
+
+        function processFileData(data) {
+            const requiredColumns = ['组别', '理论值', '实际值'];
+            const missingColumns = requiredColumns.filter(col =>
+                !data.some(row => Object.keys(row).includes(col))
+            );
+
+            if (missingColumns.length > 0) {
+                showStatus(`文件缺少必要的列: ${missingColumns.join(', ')}`, 'error');
+                return;
+            }
+
+            fileData = data.filter(row =>
+                !isNaN(parseInt(row.组别)) &&
+                !isNaN(parseInt(row.理论值)) &&
+                !isNaN(parseInt(row.实际值))
+            ).map(row => {
+                return {
+                    '组别': parseInt(row.组别),
+                    '理论值': parseInt(row.理论值),
+                    '实际值': parseInt(row.实际值)
+                };
+            });
+
+            if (fileData.length === 0) {
+                showStatus('文件没有有效数据', 'error');
+                return;
+            }
+
+            showStatus(`成功加载 ${fileData.length} 行数据`, 'success');
+            document.getElementById('calculate').disabled = false;
+        }
+
+        document.getElementById('calculate').addEventListener('click', function() {
+            if (fileData.length === 0) {
+                showStatus('没有有效数据可供计算', 'error');
+                return;
+            }
+
+            showStatus('正在计算...', 'info');
+            document.getElementById('calculate').disabled = true;
+
+            setTimeout(() => {
+                try {
+                    const result = calculateValues(fileData);
+                    downloadExcelWithExcelJS(result);
+                    showStatus('计算完成，已下载结果文件', 'success');
+                } catch (error) {
+                    console.error('计算错误:', error);
+                    showStatus(`计算错误: ${error.message}`, 'error');
+                } finally {
+                    document.getElementById('calculate').disabled = false;
+                }
+            }, 100);
+        });
+
+        document.getElementById('about').addEventListener('click', function() {
+            alert('护栏数字模拟匹配4.0\n作者：中交二公局-汤剑辉\n\n功能说明:\n1. 读取包含组别、理论值和实际值的CSV/Excel文件\n2. 计算每组的最优K值\n3. 调整组别限制\n4. 更新日期：2025年4月2日');
+        });
+
+        function showStatus(message, type) {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = `status ${type}`;
+            status.style.display = 'flex';
+        }
+
+        function calculateValues(data) {
+            const groups = {};
+            data.forEach(row => {
+                const groupNum = row.组别;
+                if (!groups[groupNum]) groups[groupNum] = [];
+                groups[groupNum].push({
+                    a: row.理论值,
+                    b: row.实际值
+                });
+            });
+
+            const results = [];
+            let nonStandardCount = 0;
+            const sortedGroupNumbers = Object.keys(groups).map(Number).sort((a, b) => a - b);
+
+            sortedGroupNumbers.forEach(groupNum => {
+                const groupData = groups[groupNum];
+                const groupSize = groupData.length;
+
+                const cumulativeDiffs = [];
+                let sumB = 0, sumA = 0;
+                for (let i = 0; i < groupSize; i++) {
+                    sumB += groupData[i].b;
+                    sumA += groupData[i].a;
+                    cumulativeDiffs.push(sumB - sumA);
+                }
+
+                let bestK = 0;
+                let isNonStandard = true;
+
+                for (let k = -12; k <= 12; k++) {
+                    const c0 = k;
+                    const cx = k + cumulativeDiffs[groupSize - 1];
+                    if (c0 < -12 || c0 > 12 || cx < -12 || cx > 12) continue;
+
+                    let outOfRangeCount = 0;
+                    for (let i = 1; i < groupSize - 1; i++) {
+                        const ci = k + cumulativeDiffs[i];
+                        if (ci < -20 || ci > 20) outOfRangeCount++;
+                    }
+
+                    if (outOfRangeCount <= 2) {
+                        bestK = k;
+                        isNonStandard = false;
+                        break;
+                    }
+                }
+
+                // 非标件强制K=0
+                const finalK = isNonStandard ? 0 : bestK;
+                if (isNonStandard) nonStandardCount++;
+
+                const resultRow = {
+                    组别: groupNum,
+                    K: finalK,
+                    备注: isNonStandard ? '非标件' : ''
+                };
+
+                // 计算所有C值
+                resultRow.C0 = finalK;
+                for (let i = 1; i <= groupSize; i++) {
+                    resultRow[`C${i}`] = finalK + cumulativeDiffs[i - 1];
+                }
+
+                // 填充空值保持6列
+                for (let i = groupSize + 1; i <= 5; i++) {
+                    resultRow[`C${i}`] = '';
+                }
+
+                results.push(resultRow);
+            });
+
+            // 添加统计行
+            const totalGroups = sortedGroupNumbers.length;
+            const percentage = (nonStandardCount / totalGroups * 100).toFixed(2);
+            results.push({
+                组别: '合计',
+                K: '',
+                C0: '',
+                C1: '',
+                C2: '',
+                C3: '',
+                C4: '',
+                C5: '',
+                备注: `非标数量：${nonStandardCount}个，占比${percentage}%`
+            });
+
+            return results;
+        }
+
+        async function downloadExcelWithExcelJS(results) {
+            try {
+                const workbook = new ExcelJS.Workbook();
+                const worksheet = workbook.addWorksheet('计算结果');
+
+                // 添加表头
+                const headerRow = worksheet.addRow(['组别', 'K', 'C0', 'C1', 'C2', 'C3', 'C4', 'C5', '备注']);
+                headerRow.eachCell(cell => {
+                    cell.font = { bold: true };
+                    cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                    cell.border = {
+                        top: { style: 'thin' }, left: { style: 'thin' },
+                        bottom: { style: 'thin' }, right: { style: 'thin' }
+                    };
+                    cell.fill = {
+                        type: 'pattern',
+                        pattern: 'solid',
+                        fgColor: { argb: 'FFD3D3D3' }
+                    };
+                });
+
+                // 添加数据行
+                results.forEach((row, index) => {
+                    const dataRow = worksheet.addRow([
+                        row.组别,
+                        row.K,
+                        row.C0,
+                        row.C1,
+                        row.C2,
+                        row.C3,
+                        row.C4,
+                        row.C5,
+                        row.备注 || ''
+                    ]);
+
+                    // 设置数据行样式
+                    dataRow.eachCell((cell, colNumber) => {
+                        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                        cell.border = {
+                            top: { style: 'thin' }, left: { style: 'thin' },
+                            bottom: { style: 'thin' }, right: { style: 'thin' }
+                        };
+
+                        // 标记非标件行
+                        if (row.备注 === '非标件' && colNumber === 9) {
+                            cell.fill = {
+                                type: 'pattern',
+                                pattern: 'solid',
+                                fgColor: { argb: 'FFFFFF00' }
+                            };
+                        }
+
+                        // 标记超限值（红色背景）
+                        if (colNumber >= 3 && colNumber <= 8) {
+                            const value = cell.value;
+                            const limit = (colNumber === 3 || colNumber === 8) ? 12 : 20;
+                            if (value !== null && value !== '' && Math.abs(value) > limit) {
+                                cell.fill = {
+                                    type: 'pattern',
+                                    pattern: 'solid',
+                                    fgColor: { argb: 'FFFF0000' }
+                                };
+                                cell.font = { color: { argb: 'FFFFFFFF' }, bold: true };
+                            }
+                        }
+
+                        // 如果是统计行，设置特殊样式
+                        if (row.组别 === '合计') {
+                            cell.font = { bold: true };
+                            cell.fill = {
+                                type: 'pattern',
+                                pattern: 'solid',
+                                fgColor: { argb: 'FFF0F0F0' }
+                            };
+                            return;
+                        }
+                    });
+                });
+
+                // 合并统计行单元格
+                const lastRowNumber = results.length;
+                worksheet.mergeCells(`A${lastRowNumber + 1}:I${lastRowNumber + 1}`);
+                const summaryRow = worksheet.getRow(lastRowNumber + 1);
+                summaryRow.getCell(1).value = results[results.length - 1].备注;
+                summaryRow.getCell(1).alignment = { horizontal: 'left' };
+                summaryRow.getCell(1).font = { bold: true };
+                summaryRow.getCell(1).fill = {
+                    type: 'pattern',
+                    pattern: 'solid',
+                    fgColor: { argb: 'FFF0F0F0' }
+                };
+
+                // 保存文件
+                const buffer = await workbook.xlsx.writeBuffer();
+                saveAs(new Blob([buffer]), `护栏匹配结果_${new Date().toLocaleDateString()}.xlsx`);
+            } catch (error) {
+                console.error('生成Excel错误:', error);
+                throw new Error('生成Excel文件时出错');
+            }
+        }
+
+</script>
