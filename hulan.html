@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>护栏数字模拟匹配4.0</title>
     <style>
+        /* 保持原有UI样式不变 */
         :root {
             --system-blue: #007AFF;
             --system-gray: #8E8E93;
@@ -198,10 +199,10 @@
 
     <div class="author">中交二公局-汤剑辉</div>
 
-    <script src="https://cdn.jsdelivr.net/npm/exceljs@4.3.0/dist/exceljs.min.js" defer></script>
-    <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js" defer></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js" defer></script>
-    <script defer>
+    <script src="https://cdn.jsdelivr.net/npm/exceljs@4.3.0/dist/exceljs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    <script>
         let fileData = [];
         const statusElement = document.getElementById('status');
 
@@ -327,7 +328,7 @@
         });
 
         document.getElementById('about').addEventListener('click', function() {
-            alert('护栏数字模拟匹配4.0\n作者：中交二公局-汤剑辉\n\n功能说明:\n1. 读取包含组别、理论值和实际值的CSV/Excel文件\n2. 计算每组的最优K值\n3. 调整组别限制\n4. 更新日期：2025年4月2日');
+            alert('护栏数字模拟匹配4.0\n作者：中交二公局-汤剑辉\n\n功能说明:\n1. 读取包含组别、理论值和实际值的CSV/Excel文件\n2. 计算每组的最优K值\n3. 调整组别限制\n4. 更新日期：2025年4月5日');
         });
 
         function showStatus(message, type) {
@@ -352,10 +353,15 @@
             let nonStandardCount = 0;
             const sortedGroupNumbers = Object.keys(groups).map(Number).sort((a, b) => a - b);
 
-            sortedGroupNumbers.forEach(groupNum => {
+            // 新增状态跟踪
+            let prevC5 = 0;
+            let prevIsNonStandard = true; // 初始设为true，第一组不受约束
+
+            sortedGroupNumbers.forEach((groupNum, index) => {
                 const groupData = groups[groupNum];
                 const groupSize = groupData.length;
 
+                // 计算累积差值
                 const cumulativeDiffs = [];
                 let sumB = 0, sumA = 0;
                 for (let i = 0; i < groupSize; i++) {
@@ -363,44 +369,77 @@
                     sumA += groupData[i].a;
                     cumulativeDiffs.push(sumB - sumA);
                 }
+                const lastCumulativeDiff = cumulativeDiffs[groupSize - 1];
 
-                let bestK = 0;
-                let isNonStandard = true;
+                // 动态调整K值范围
+                let minK = -12;
+                let maxK = 12;
 
-                for (let k = -12; k <= 12; k++) {
+                // 应用相邻约束（仅当上一组不是非标件时）
+                if (index > 0 && !prevIsNonStandard) {
+                    maxK = Math.min(12, 12 + prevC5);
+                    // 确保范围有效
+                    if (maxK < -12) maxK = -12;
+                }
+
+                // 收集所有有效K值和对应的C5
+                const validOptions = [];
+                for (let k = minK; k <= maxK; k++) {
                     const c0 = k;
-                    const cx = k + cumulativeDiffs[groupSize - 1];
-                    if (c0 < -12 || c0 > 12 || cx < -12 || cx > 12) continue;
+                    const c5 = k + lastCumulativeDiff;
 
+                    // 首尾约束
+                    if (c0 < -12 || c0 > 12 || c5 < -12 || c5 > 12) continue;
+
+                    // 中间值约束
                     let outOfRangeCount = 0;
                     for (let i = 1; i < groupSize - 1; i++) {
                         const ci = k + cumulativeDiffs[i];
                         if (ci < -20 || ci > 20) outOfRangeCount++;
                     }
+                    if (outOfRangeCount > 2) continue;
 
-                    if (outOfRangeCount <= 2) {
-                        bestK = k;
-                        isNonStandard = false;
-                        break;
-                    }
+                    validOptions.push({k, c5});
                 }
 
-                // 非标件强制K=0
-                const finalK = isNonStandard ? 0 : bestK;
-                if (isNonStandard) nonStandardCount++;
+                // 选择最优K值
+                let bestK = 0;
+                let isNonStandard = true;
 
+                if (validOptions.length > 0) {
+                    isNonStandard = false;
+                    // 按C5降序、K降序排序
+                    validOptions.sort((a, b) => {
+                        if (b.c5 !== a.c5) return b.c5 - a.c5;
+                        return b.k - a.k;
+                    });
+                    bestK = validOptions[0].k;
+                }
+
+                // 非标件处理
+                if (isNonStandard) {
+                    nonStandardCount++;
+                    bestK = 0;
+                }
+
+                // 构造结果行
                 const resultRow = {
                     组别: groupNum,
-                    K: finalK,
-                    备注: isNonStandard ? '非标件' : ''
+                    K: bestK,
+                    备注: isNonStandard ? '非标件' : '',
+                    isNonStandard: isNonStandard,
+                    C5: bestK + lastCumulativeDiff // 记录最终C5值
                 };
 
-                // 计算所有C值
-                resultRow.C0 = finalK;
-                for (let i = 1; i <= groupSize; i++) {
-                    resultRow[`C${i}`] = finalK + cumulativeDiffs[i - 1];
-                }
+                // 保存相邻组需要的数据
+                prevC5 = resultRow.C5;
+                prevIsNonStandard = isNonStandard;
 
+                // 计算所有C值
+                resultRow.C0 = bestK;
+                for (let i = 1; i <= groupSize; i++) {
+                    resultRow[`C${i}`] = bestK + cumulativeDiffs[i - 1];
+                }
                 // 填充空值保持6列
                 for (let i = groupSize + 1; i <= 5; i++) {
                     resultRow[`C${i}`] = '';
@@ -479,7 +518,7 @@
                             };
                         }
 
-                        // 动态判断首尾C值（修复关键问题）
+                        // 动态判断首尾C值
                         const isFirstOrLastC = (colNumber === 3 || colNumber === (3 + Object.keys(row).filter(k => k.startsWith('C')).length - 1));
                         const limit = isFirstOrLastC ? 12 : 20;
 
