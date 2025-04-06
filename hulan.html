@@ -205,6 +205,7 @@
     <script>
         let fileData = [];
         const statusElement = document.getElementById('status');
+        let fileName = ''; // 新增变量来存储文件名
 
         document.getElementById('selectFile').addEventListener('click', function() {
             const input = document.createElement('input');
@@ -218,6 +219,8 @@
                 document.getElementById('fileInfo').textContent = `已选择文件: ${file.name}`;
                 document.getElementById('calculate').disabled = true;
                 showStatus('正在解析文件...', 'info');
+
+                fileName = file.name; // 存储文件名
 
                 const reader = new FileReader();
                 reader.onload = function(e) {
@@ -328,7 +331,7 @@
         });
 
         document.getElementById('about').addEventListener('click', function() {
-            alert('护栏数字模拟匹配4.0\n作者：中交二公局-汤剑辉\n\n功能说明:\n1. 读取包含组别、理论值和实际值的CSV/Excel文件\n2. 计算每组的最优K值\n3. 调整组别限制\n4. 更新日期：2025年4月5日');
+            alert('护栏数字模拟匹配4.0\n作者：中交二公局-汤剑辉\n\n功能说明:\n1. 读取包含组别、理论值和实际值的CSV/Excel文件\n2. 计算每组的最优K值\n3. 调整组别限制\n4. 更新日期：2025年4月6日');
         });
 
         function showStatus(message, type) {
@@ -354,7 +357,7 @@
             const sortedGroupNumbers = Object.keys(groups).map(Number).sort((a, b) => a - b);
 
             // 新增状态跟踪
-            let prevC5 = 0;
+            let prevLastC = 0; // 上一组的最后一个C值
             let prevIsNonStandard = true; // 初始设为true，第一组不受约束
 
             sortedGroupNumbers.forEach((groupNum, index) => {
@@ -377,19 +380,19 @@
 
                 // 应用相邻约束（仅当上一组不是非标件时）
                 if (index > 0 && !prevIsNonStandard) {
-                    maxK = Math.min(12, 12 + prevC5);
+                    maxK = Math.min(12, 12 + prevLastC);
                     // 确保范围有效
                     if (maxK < -12) maxK = -12;
                 }
 
-                // 收集所有有效K值和对应的C5
+                // 收集所有有效K值和对应的最后一个C值
                 const validOptions = [];
                 for (let k = minK; k <= maxK; k++) {
                     const c0 = k;
-                    const c5 = k + lastCumulativeDiff;
+                    const lastC = k + lastCumulativeDiff;
 
                     // 首尾约束
-                    if (c0 < -12 || c0 > 12 || c5 < -12 || c5 > 12) continue;
+                    if (c0 < -12 || c0 > 12 || lastC < -12 || lastC > 12) continue;
 
                     // 中间值约束
                     let outOfRangeCount = 0;
@@ -399,7 +402,7 @@
                     }
                     if (outOfRangeCount > 2) continue;
 
-                    validOptions.push({k, c5});
+                    validOptions.push({k, lastC});
                 }
 
                 // 选择最优K值
@@ -408,9 +411,9 @@
 
                 if (validOptions.length > 0) {
                     isNonStandard = false;
-                    // 按C5降序、K降序排序
+                    // 按最后一个C值降序、K降序排序
                     validOptions.sort((a, b) => {
-                        if (b.c5 !== a.c5) return b.c5 - a.c5;
+                        if (b.lastC !== a.lastC) return b.lastC - a.lastC;
                         return b.k - a.k;
                     });
                     bestK = validOptions[0].k;
@@ -428,11 +431,11 @@
                     K: bestK,
                     备注: isNonStandard ? '非标件' : '',
                     isNonStandard: isNonStandard,
-                    C5: bestK + lastCumulativeDiff // 记录最终C5值
+                    lastC: bestK + lastCumulativeDiff // 记录最后一个C值
                 };
 
                 // 保存相邻组需要的数据
-                prevC5 = resultRow.C5;
+                prevLastC = resultRow.lastC;
                 prevIsNonStandard = isNonStandard;
 
                 // 计算所有C值
@@ -563,7 +566,10 @@
 
                 // 保存文件
                 const buffer = await workbook.xlsx.writeBuffer();
-                saveAs(new Blob([buffer]), `护栏匹配结果_${new Date().toISOString().split('T')[0]}.xlsx`);
+                const currentTime = new Date();
+                const formattedTime = currentTime.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }).replace(':', '-');
+                const fileNameWithTime = `${fileName.split('.')[0]}-${formattedTime}.xlsx`; // 使用存储的文件名
+                saveAs(new Blob([buffer]), fileNameWithTime);
             } catch (error) {
                 console.error('下载文件错误:', error);
                 showStatus('下载文件错误', 'error');
